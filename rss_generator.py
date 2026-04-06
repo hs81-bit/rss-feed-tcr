@@ -1,37 +1,60 @@
+#!/usr/bin/env python3
+# rss_generator.py
+# Erstellt einen RSS-Feed aus dem TUI Cruises Presse-Archiv
+
 import requests
-from bs4 import BeautifulSoup
-from feedgen.feed import FeedGenerator
+import json
+import xml.etree.ElementTree as ET
+from datetime import datetime
 
-JSON_URL = "https://www.meinschiff.com/presse/archiv/archiv.json"
-BASE_URL = "https://www.meinschiff.com"
+# --- Konfiguration ---
+JSON_URL = "https://www.meinschiff.com/presse/archiv.json"
+RSS_FILE = "rss.xml"
+RSS_TITLE = "TUI Cruises Pressemitteilungen"
+RSS_LINK = "https://www.meinschiff.com/presse/archiv"
+RSS_DESC = "Aktuelle Pressemitteilungen von TUI Cruises"
 
-response = requests.get(JSON_URL, headers={"User-Agent": "Mozilla/5.0"})
-response.raise_for_status()
+headers = {
+    "User-Agent": "Mozilla/5.0",
+    "Accept": "application/json"
+}
+
+# --- JSON abrufen ---
+response = requests.get(JSON_URL, headers=headers)
+if not response.headers.get("Content-Type", "").startswith("application/json"):
+    print("Keine JSON-Antwort erhalten, überprüfe die URL oder Header!")
+    print(response.text[:500])
+    exit(1)
 
 data = response.json()
 
-entries = data["content"]["slots"]["content"][1]["properties"]["entries"]
+# --- RSS-Feed erstellen ---
+rss = ET.Element("rss", version="2.0")
+channel = ET.SubElement(rss, "channel")
 
-fg = FeedGenerator()
-fg.title("Mein Schiff Pressemitteilungen")
-fg.link(href=BASE_URL + "/presse/archiv")
-fg.description("Automatischer RSS Feed für Mein Schiff Pressemitteilungen")
+ET.SubElement(channel, "title").text = RSS_TITLE
+ET.SubElement(channel, "link").text = RSS_LINK
+ET.SubElement(channel, "description").text = RSS_DESC
+ET.SubElement(channel, "lastBuildDate").text = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
 
-for item in entries[:30]:
-    fe = fg.add_entry()
+# --- Pressemitteilungen aus JSON auslesen ---
+entries = data.get("content", {}).get("slots", {}).get("content", [])
+for item in entries:
+    if item.get("element") != "tui-presslist":
+        continue
+    for entry in item.get("properties", {}).get("entries", []):
+        title = entry.get("filter", {}).get("search", "") or entry.get("properties", {}).get("headline", {}).get("text", "Pressemitteilung")
+        link = entry.get("url") or RSS_LINK
+        desc = entry.get("description", "Keine Beschreibung verfügbar.")
+        pub_date = entry.get("filter", {}).get("year", [str(datetime.utcnow().year)])[0] + "-01-01"
 
-    clean_text = BeautifulSoup(
-        item["description"],
-        "html.parser"
-    ).get_text(" ", strip=True)
+        rss_item = ET.SubElement(channel, "item")
+        ET.SubElement(rss_item, "title").text = title
+        ET.SubElement(rss_item, "link").text = link
+        ET.SubElement(rss_item, "description").text = desc
+        ET.SubElement(rss_item, "pubDate").text = datetime.strptime(pub_date, "%Y-%m-%d").strftime("%a, %d %b %Y %H:%M:%S GMT")
 
-    title = clean_text[:120]
-    link = BASE_URL + item["link"]["href"]
-
-    fe.title(title)
-    fe.link(href=link)
-    fe.description(clean_text)
-    fe.guid(link)
-
-fg.rss_file("docs/rss.xml")
-print("RSS erfolgreich erstellt")
+# --- RSS-Datei speichern ---
+tree = ET.ElementTree(rss)
+tree.write(RSS_FILE, encoding="utf-8", xml_declaration=True)
+print(f"RSS-Feed erfolgreich erstellt: {RSS_FILE}")

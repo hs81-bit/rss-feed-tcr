@@ -1,29 +1,21 @@
 import requests
-import json
-import re
 from bs4 import BeautifulSoup
 from feedgen.feed import FeedGenerator
 
-URL = "https://www.meinschiff.com/presse/archiv"
+JSON_URL = "https://www.meinschiff.com/presse/archiv/archiv.json"
+BASE_URL = "https://www.meinschiff.com"
 
-response = requests.get(URL, headers={"User-Agent": "Mozilla/5.0"})
-html = response.text
+response = requests.get(JSON_URL, headers={"User-Agent": "Mozilla/5.0"})
+response.raise_for_status()
 
-# JSON Block per Regex extrahieren
-match = re.search(r'(\{"version".*?\})\s*</script>', html, re.DOTALL)
-
-if not match:
-    raise Exception("JSON Block nicht gefunden")
-
-json_text = match.group(1)
-data = json.loads(json_text)
+data = response.json()
 
 entries = data["content"]["slots"]["content"][1]["properties"]["entries"]
 
 fg = FeedGenerator()
 fg.title("Mein Schiff Pressemitteilungen")
-fg.link(href=URL)
-fg.description("Automatischer RSS Feed")
+fg.link(href=BASE_URL + "/presse/archiv")
+fg.description("Automatischer RSS Feed für Mein Schiff Pressemitteilungen")
 
 for item in entries[:30]:
     fe = fg.add_entry()
@@ -34,7 +26,7 @@ for item in entries[:30]:
     ).get_text(" ", strip=True)
 
     title = clean_text[:120]
-    link = "https://www.meinschiff.com" + item["link"]["href"]
+    link = BASE_URL + item["link"]["href"]
 
     fe.title(title)
     fe.link(href=link)

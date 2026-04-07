@@ -19,7 +19,12 @@ url = "https://www.aida.de/content/aida-component-library/requests/pressnewssear
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)  # headless für GitHub Actions
     page = browser.new_page()
-    
+    # Header setzen, bevor du die Seite aufrufst
+    page.set_extra_http_headers({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+        "Accept-Language": "de-DE,de;q=0.9",
+        # Falls nötig weitere Header, z. B. Cookies
+    })
     try:
         print(f"Starte Zugriff auf: {url}")
         page.goto(url, timeout=60000)  # Timeout auf 60s

@@ -11,7 +11,12 @@ os.makedirs(output_dir, exist_ok=True)
 output_file = Path(output_dir) / "archiv.json"
 
 # URL für die AIDA Presse-News (kann angepasst werden)
-url = "https://www.aida.de/content/aida-component-library/requests/pressnewssearch.json/content/aida/deutschland/de/unternehmen/presse/archiv"
+url = (
+    "https://aida.de/content/aida-component-library/requests/"
+    "pressnewssearch.json/content/aida/deutschland/de/"
+    "unternehmen/presse/archiv/_jcr_content/root/container/"
+    "container/pressarchivesearchba?size=15&p=1"
+)
 
 # -----------------------------
 # Playwright starten und Seite abrufen

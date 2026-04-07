@@ -24,7 +24,7 @@ jobs:
           playwright install chromium
 
       - name: AIDA JSON holen
-        run: python AIDA/aida_fetch.py
+        run: python aida_fetch.py
 
       - name: Änderungen committen
         run: |

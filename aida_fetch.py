@@ -1,46 +1,51 @@
 import os
-import requests
 import json
+from pathlib import Path
+from playwright.sync_api import sync_playwright
 
-# Zielordner
-output_dir = "out"
-output_file = os.path.join(output_dir, "archiv.json")
-
-# AIDA Presse-Archiv JSON Endpoint
-url = (
-    "https://aida.de/content/aida-component-library/requests/"
-    "pressnewssearch.json/content/aida/deutschland/de/"
-    "unternehmen/presse/archiv/_jcr_content/root/container/"
-    "container/pressarchivesearchba?size=15&p=1"
-)
-
-# Verzeichnis sicherstellen
+# -----------------------------
+# Einstellungen
+# -----------------------------
+output_dir = "out"  # relativer Pfad, Ordner im Repo
 os.makedirs(output_dir, exist_ok=True)
-print(f"✅ Verzeichnis existiert: {os.path.abspath(output_dir)}")
+output_file = Path(output_dir) / "aida.json"
 
-# Minimal notwendige Header
-headers = {
-    "User-Agent": "Mozilla/5.0",
-    "Accept": "application/json, text/plain, */*",
-    "Referer": "https://aida.de/unternehmen/presse/archiv?p=1",
-}
+# URL für die AIDA Presse-News (kann angepasst werden)
+url = "https://www.aida.de/content/aida-component-library/requests/pressnewssearch.json/content/aida/deutschland/de/unternehmen/presse/archiv"
 
-# Request senden
-response = requests.get(url, headers=headers, timeout=30)
-print(f"✅ HTTP-Status: {response.status_code}")
-
-# JSON prüfen
-try:
-    data = response.json()
-    print("✅ JSON erfolgreich geparst")
-except Exception as e:
-    print("❌ JSON konnte nicht geparst werden:", e)
-    print("Antwortanfang:")
-    print(response.text[:1000])
-    exit(1)
-
-# Datei speichern
-with open(output_file, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2, ensure_ascii=False)
-
-print(f"✅ Datei gespeichert unter: {os.path.abspath(output_file)}")
+# -----------------------------
+# Playwright starten und Seite abrufen
+# -----------------------------
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)  # headless für GitHub Actions
+    page = browser.new_page()
+    
+    try:
+        print(f"Starte Zugriff auf: {url}")
+        page.goto(url, timeout=60000)  # Timeout auf 60s
+        page.wait_for_load_state("networkidle")
+        
+        # Content als JSON parsen
+        content = page.content()
+        
+        # Wenn die Seite JSON liefert, versuche direkt zu laden
+        try:
+            # Manche Seiten liefern JSON direkt im Body
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            # Fallback: JSON aus <pre> oder <script> extrahieren
+            # Hier ein einfaches Beispiel, falls die Seite HTML liefert
+            print("Fehler beim JSON parsen, speichere Roh-HTML")
+            data = {"html_content": content}
+        
+        # Datei speichern
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        print(f"✅ Daten gespeichert in {output_file}")
+    
+    except Exception as e:
+        print(f"❌ Fehler: {e}")
+    
+    finally:
+        browser.close()

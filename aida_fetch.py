@@ -3,7 +3,7 @@ import requests
 import json
 
 # Zielordner
-output_dir = "/config/playwright_env/AIDA/out"
+output_dir = "out"
 output_file = os.path.join(output_dir, "archiv.json")
 
 # AIDA Presse-Archiv JSON Endpoint
